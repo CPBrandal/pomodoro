@@ -4,8 +4,7 @@ set -e
 
 echo "Installing Pomodoro Timer..."
 
-# Configuration - update these when you host the binaries
-REPO="YOUR_GITHUB_USERNAME/pomodoro"
+REPO="CPBrandal/pomodoro"
 VERSION="v1.0.0"
 
 # Detect OS and architecture
