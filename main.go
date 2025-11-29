@@ -4,19 +4,10 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 	"time"
 )
-
-func alert(message string) {
-	cmd := exec.Command("osascript", "-e", fmt.Sprintf(`display dialog "%s" with title "Pomodoro"`, message))
-	err := cmd.Run()
-	if err != nil {
-		fmt.Println("Failed to send notification:", err)
-	}
-}
 
 func main() {
 	reader := bufio.NewReader(os.Stdin)
@@ -55,15 +46,15 @@ func main() {
 
 	workDuration := time.Duration(workMinutes) * time.Minute
 	breakDuration := time.Duration(breakMinutes) * time.Minute
-	
+
 	workLoop(workDuration, breakDuration)
 }
 
-func workLoop(workDuration time.Duration, breakDuration time.Duration) {
+func workLoop(workDuration, breakDuration time.Duration) {
 	for i := range 4 {
 		fmt.Printf("Work session %d started...\n", i+1)
 		time.Sleep(workDuration)
-		alert(fmt.Sprintf("Take a break! You worked for %.0f minutes. \n A %.0f minute break starts now.", workDuration.Minutes(), breakDuration.Minutes()))
+		alert(fmt.Sprintf("Take a break! You worked for %.0f minutes.\nA %.0f minute break starts now.", workDuration.Minutes(), breakDuration.Minutes()))
 
 		fmt.Printf("Break time (%.0f minutes)...\n", breakDuration.Minutes())
 		time.Sleep(breakDuration)
