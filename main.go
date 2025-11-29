@@ -45,10 +45,11 @@ func main() {
 	if breakStr == "" {
 		breakMinutes = 5
 	} else {
-		breakMinutes, err := strconv.Atoi(breakStr)
+		var err error
+		breakMinutes, err = strconv.Atoi(breakStr)
 		if err != nil || breakMinutes <= 0 {
 			fmt.Println("Please enter a valid positive number for duration.")
-		return
+			return
 		}
 	}
 
