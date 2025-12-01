@@ -57,10 +57,18 @@ func workLoop(workDuration, breakDuration time.Duration) {
 		alert(fmt.Sprintf("Take a break! You worked for %.0f minutes.\nA %.0f minute break starts now.", workDuration.Minutes(), breakDuration.Minutes()))
 
 		fmt.Printf("Break time (%.0f minutes)...\n", breakDuration.Minutes())
-		time.Sleep(breakDuration)
-		alert("Break over! Time to get back to work.")
+		if(i!=3) {
+			time.Sleep(breakDuration)
+			alert("Break over! Time to get back to work.")
+		}
 	}
 
 	alert("Great job! Time for a longer 20 minute break.")
 	time.Sleep(20 * time.Minute)
+	restart()
+}
+
+func restart() {
+	alert("You have completed your pomodoro session. Press ok to restart, or cancel to exit.")
+	main() // TODO: Do we want to restart the program, or just restart the loop?
 }
