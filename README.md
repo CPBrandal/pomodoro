@@ -6,7 +6,9 @@ A simple, command-line Pomodoro timer built with Go. Focus on your work with cus
 
 Install with a single command:
 
-curl -fsSL https://raw.githubusercontent.com/CPBrandal/pomodoro/main/install.sh | bashOr download and run the install script:
+curl -fsSL https://raw.githubusercontent.com/CPBrandal/pomodoro/main/install.sh | bash 
+
+Or download and run the install script:
 
 curl -fsSL https://raw.githubusercontent.com/CPBrandal/pomodoro/main/install.sh -o install.sh
 chmod +x install.sh
