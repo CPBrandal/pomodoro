@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -12,6 +13,24 @@ import (
 var lastPreset LastPresetChoice
 
 func main() {
+	// Check for command-line flags
+	if len(os.Args) > 1 {
+		arg := strings.ToLower(os.Args[1])
+		switch arg {
+		case "--uninstall", "-u", "uninstall":
+			uninstall()
+			return
+		case "--help", "-h", "help":
+			showCLIHelp()
+			return
+		default:
+			fmt.Printf("Unknown option: %s\n", os.Args[1])
+			fmt.Println("Use 'pomodoro --help' for usage information")
+			os.Exit(1)
+			return
+		}
+	}
+
 	presets := loadPresets()
 	if presets.LastUsedPreset != nil {
 		lastPreset = LastPresetChoice{
@@ -20,6 +39,53 @@ func main() {
 		}
 	}
 	showMainMenu()
+}
+
+func showCLIHelp() {
+	fmt.Println("Pomodoro Timer")
+	fmt.Println("\nUsage:")
+	fmt.Println("  pomodoro              Start the timer")
+	fmt.Println("  pomodoro --uninstall  Uninstall the program and remove config")
+	fmt.Println("  pomodoro -u          Short form for uninstall")
+	fmt.Println("  pomodoro --help      Show this help message")
+	fmt.Println("  pomodoro -h          Short form for help")
+}
+
+func uninstall() {
+	fmt.Println("Uninstalling Pomodoro Timer...")
+	
+	// Remove the installed binary from /usr/local/bin
+	installedPath := "/usr/local/bin/pomodoro"
+	
+	if _, err := os.Stat(installedPath); err == nil {
+		fmt.Printf("Found binary at %s\n", installedPath)
+		fmt.Println("Note: Removing the binary requires sudo privileges.")
+		fmt.Printf("Please run: sudo rm %s\n", installedPath)
+	} else {
+		fmt.Printf("Binary not found at %s (may already be removed)\n", installedPath)
+	}
+	
+	// Remove config directory
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		fmt.Println("Error: Could not determine home directory")
+		return
+	}
+	
+	configDir := filepath.Join(homeDir, ".pomodoro")
+	if _, err := os.Stat(configDir); err == nil {
+		fmt.Printf("\nRemoving configuration directory: %s\n", configDir)
+		if err := os.RemoveAll(configDir); err != nil {
+			fmt.Printf("Error: Could not remove config directory: %v\n", err)
+		} else {
+			fmt.Println("Configuration removed successfully")
+		}
+	} else {
+		fmt.Println("\nNo configuration directory found")
+	}
+	
+	fmt.Println("\nUninstallation complete!")
+	fmt.Println("Don't forget to remove the binary with: sudo rm /usr/local/bin/pomodoro")
 }
 
 func showMainMenu() {

@@ -5,7 +5,7 @@ set -e
 echo "Installing Pomodoro Timer..."
 
 REPO="CPBrandal/pomodoro"
-VERSION="v1.0.0"
+VERSION="v1.1.0"
 
 # Detect OS and architecture
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
