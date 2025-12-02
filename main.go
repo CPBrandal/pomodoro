@@ -215,7 +215,7 @@ func createCustomTimer(reader *bufio.Reader) {
 		nameStr, _ := reader.ReadString('\n')
 		nameStr = strings.TrimSpace(nameStr)
 		if nameStr != "" {
-			savePreset(nameStr, workMinutes, breakMinutes)
+			savePreset(nameStr, workMinutes, breakMinutes, longerBreakMinutes)
 			fmt.Printf("Preset '%s' saved!\n", nameStr)
 		}
 	}

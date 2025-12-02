@@ -62,7 +62,7 @@ func saveLastUsedPreset(workMinutes, breakMinutes, longerBreakMinutes int) {
 	os.WriteFile(configPath, data, 0644)
 }
 
-func savePreset(name string, workMinutes, breakMinutes int) {
+func savePreset(name string, workMinutes, breakMinutes, longerBreakMinutes int) {
 	presets := loadPresets()
 	
 	found := false
@@ -70,6 +70,7 @@ func savePreset(name string, workMinutes, breakMinutes int) {
 		if presets.Presets[i].Name == name {
 			presets.Presets[i].WorkMinutes = workMinutes
 			presets.Presets[i].BreakMinutes = breakMinutes
+			presets.Presets[i].LongerBreakMinutes = longerBreakMinutes
 			found = true
 			break
 		}
@@ -80,6 +81,7 @@ func savePreset(name string, workMinutes, breakMinutes int) {
 			Name:         name,
 			WorkMinutes:  workMinutes,
 			BreakMinutes: breakMinutes,
+			LongerBreakMinutes: longerBreakMinutes,
 		})
 	}
 
