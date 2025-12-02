@@ -50,8 +50,4 @@ Your presets and settings are stored in `~/.pomodoro/presets.json`. You can edit
 
 ## License
 
-[Add your license here]
-
-## Contributing
-
-[Add contribution guidelines if applicable]
+MIT
