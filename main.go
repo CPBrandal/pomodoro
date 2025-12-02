@@ -254,17 +254,17 @@ func workBreakLoop(workDuration time.Duration, breakDuration time.Duration, long
 	
 	for i := range 4 {
 		fmt.Printf("Work session %d started...\n", i+1)
-		//time.Sleep(workDuration)
+		time.Sleep(workDuration)
 		alert(fmt.Sprintf("Take a break! You worked for %.0f minutes.\nA %.0f minute break starts now.", workDuration.Minutes(), breakDuration.Minutes()))
 
 		if(i==3) {break;}
 		fmt.Printf("Break time (%.0f minutes)...\n", breakDuration.Minutes())
-		//time.Sleep(breakDuration)
+		time.Sleep(breakDuration)
 		alert("Break over! Time to get back to work.")
 	}
 
 	alert(fmt.Sprintf("Great job! Time for a longer %.0f minute break.", longerBreakDuration.Minutes()))
-	//time.Sleep(longerBreakDuration)
+	time.Sleep(longerBreakDuration)
 	alert("You have completed your pomodoro session. Press ok to restart, or cancel to exit.")
 	showMainMenu()
 }

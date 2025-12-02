@@ -6,19 +6,23 @@ A simple, command-line Pomodoro timer built with Go. Focus on your work with cus
 
 Install with a single command:
 
-curl -fsSL https://raw.githubusercontent.com/CPBrandal/pomodoro/main/install.sh | bash 
+curl -fsSL https://raw.githubusercontent.com/CPBrandal/pomodoro/main/install.sh | bash
 
 Or download and run the install script:
 
 curl -fsSL https://raw.githubusercontent.com/CPBrandal/pomodoro/main/install.sh -o install.sh
 chmod +x install.sh
-./install.sh## Usage
+./install.sh
+
+## Usage
 
 ### Start the Timer
 
 Simply run:
 
-pomodoro### Features
+pomodoro
+
+### Features
 
 - **Default Timer**: Quick start with 25-minute work sessions and 5-minute breaks
 - **Custom Timers**: Create your own work/break intervals
@@ -36,7 +40,9 @@ pomodoro -u # Short form for uninstall## Uninstallation
 
 To uninstall the program and remove all configuration:
 
-pomodoro -uThis will:
+pomodoro -u
+
+This will:
 
 - Remove the configuration directory (`~/.pomodoro`)
 - Provide instructions for removing the binary (requires sudo)
