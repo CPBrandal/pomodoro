@@ -36,6 +36,7 @@ func main() {
 		lastPreset = LastPresetChoice{
 			workTime:  time.Duration(presets.LastUsedPreset.WorkMinutes) * time.Minute,
 			breakTime: time.Duration(presets.LastUsedPreset.BreakMinutes) * time.Minute,
+			longerBreakTime: time.Duration(presets.LastUsedPreset.LongerBreakMinutes) * time.Minute,
 		}
 	}
 	showMainMenu()
