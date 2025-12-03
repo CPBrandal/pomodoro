@@ -4,16 +4,21 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
 var lastPreset LastPresetChoice
+var sessionStartTime time.Time
 
-func main() {
-	// Check for command-line flags
+func main() {	
+	setupExitHandler()
+	sessionStartTime = time.Now()
+	
 	if len(os.Args) > 1 {
 		arg := strings.ToLower(os.Args[1])
 		switch arg {
@@ -22,6 +27,9 @@ func main() {
 			return
 		case "--help", "-h", "help":
 			showCLIHelp()
+			return
+		case "--stats", "-s", "stats":
+			showUsageStats()
 			return
 		default:
 			fmt.Printf("Unknown option: %s\n", os.Args[1])
@@ -42,12 +50,40 @@ func main() {
 	showMainMenu()
 }
 
+func setupExitHandler() {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-c
+		saveSessionTime()
+		os.Exit(0)
+	}()
+}
+
+func saveSessionTime() {
+	duration := time.Since(sessionStartTime)
+	if duration > time.Minute { // Only save if session was longer than 1 minute
+		addSessionTime(duration)
+	}
+}
+
+func showUsageStats() {
+	totalHours := getTotalUsageHours()
+	hours := int(totalHours)
+	minutes := int((totalHours - float64(hours)) * 60)
+	
+	fmt.Printf("Total usage time: %d hours, %d minutes\n", hours, minutes)
+	fmt.Printf("(%.2f hours total)\n", totalHours)
+}
+
 func showCLIHelp() {
 	fmt.Println("Pomodoro Timer")
 	fmt.Println("\nUsage:")
 	fmt.Println("  pomodoro              Start the timer")
 	fmt.Println("  pomodoro --uninstall  Uninstall the program and remove config")
 	fmt.Println("  pomodoro -u          Short form for uninstall")
+	fmt.Println("  pomodoro --stats     Show total usage statistics")
+	fmt.Println("  pomodoro -s          Short form for stats")
 	fmt.Println("  pomodoro --help      Show this help message")
 	fmt.Println("  pomodoro -h          Short form for help")
 }
@@ -90,6 +126,11 @@ func uninstall() {
 }
 
 func showMainMenu() {
+	// Dimensions: 900px wide x 900px tall (for 74x60 ASCII art)
+	if err := showASCIIArtWithAutoSize("ascii-paintings/theGirlWithThePearlEarring"); err != nil {
+		// TODO error handling
+	}
+	
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Println("\n================================================")
 	fmt.Printf("%sP O M O D O R O%s\n", "\033[31m", "\033[0m")
@@ -97,6 +138,7 @@ func showMainMenu() {
 	fmt.Print("1 - Use default values (25 min work, 5 min break)\n")
 	fmt.Print("2 - Select custom values\n")
 	fmt.Print("3 - Delete presets\n")
+	fmt.Print("s - Show usage\n")
 	fmt.Print("⏎ - Use last selected preset\n")
 	fmt.Print("q - Quit the program\n")
 	printUserInputPrompt()
@@ -106,6 +148,7 @@ func showMainMenu() {
 		
 		switch choice {
 		case "q":
+			saveSessionTime()
 			os.Exit(0)
 			return
 		case "1":
@@ -130,6 +173,9 @@ func showMainMenu() {
                 return
             }
             fmt.Println("\nPlease select a custom timer first.")
+			printUserInputPrompt()
+		case "s":
+			showUsageStats()
 			printUserInputPrompt()
 		case "h":
 			showHelp()
