@@ -59,3 +59,6 @@ Your presets and settings are stored in `~/.pomodoro/presets.json`. You can edit
 ## License
 
 MIT
+
+## Resources
+ASCII art is from: https://asciiart.website/cat.php?category_id=88
