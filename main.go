@@ -2,10 +2,10 @@ package main
 
 import (
 	"bufio"
+	"embed"
 	"fmt"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -13,11 +13,10 @@ import (
 )
 
 var lastPreset LastPresetChoice
-var sessionStartTime time.Time
+var asciiPaintings embed.FS
 
 func main() {	
 	setupExitHandler()
-	sessionStartTime = time.Now()
 	
 	if len(os.Args) > 1 {
 		arg := strings.ToLower(os.Args[1])
@@ -27,9 +26,6 @@ func main() {
 			return
 		case "--help", "-h", "help":
 			showCLIHelp()
-			return
-		case "--stats", "-s", "stats":
-			showUsageStats()
 			return
 		default:
 			fmt.Printf("Unknown option: %s\n", os.Args[1])
@@ -42,9 +38,15 @@ func main() {
 	presets := loadPresets()
 	if presets.LastUsedPreset != nil {
 		lastPreset = LastPresetChoice{
-			workTime:  time.Duration(presets.LastUsedPreset.WorkMinutes) * time.Minute,
-			breakTime: time.Duration(presets.LastUsedPreset.BreakMinutes) * time.Minute,
-			longerBreakTime: time.Duration(presets.LastUsedPreset.LongerBreakMinutes) * time.Minute,
+			WorkTime:  time.Duration(presets.LastUsedPreset.WorkMinutes) * time.Minute,
+			BreakTime: time.Duration(presets.LastUsedPreset.BreakMinutes) * time.Minute,
+			LongerBreakTime: time.Duration(presets.LastUsedPreset.LongerBreakMinutes) * time.Minute,
+		}
+	} else {
+		lastPreset = LastPresetChoice{
+			WorkTime:  time.Duration(DEFAULT_WORK_DURATION) * time.Minute,
+			BreakTime: time.Duration(DEFAULT_BREAK_DURATION) * time.Minute,
+			LongerBreakTime: time.Duration(DEFAULT_LONGER_BREAK_DURATION) * time.Minute,
 		}
 	}
 	showMainMenu()
@@ -55,90 +57,20 @@ func setupExitHandler() {
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-c
-		saveSessionTime()
 		os.Exit(0)
 	}()
 }
 
-func saveSessionTime() {
-	duration := time.Since(sessionStartTime)
-	if duration > time.Minute { // Only save if session was longer than 1 minute
-		addSessionTime(duration)
-	}
-}
-
-func showUsageStats() {
-	totalHours := getTotalUsageHours()
-	hours := int(totalHours)
-	minutes := int((totalHours - float64(hours)) * 60)
-	
-	fmt.Printf("Total usage time: %d hours, %d minutes\n", hours, minutes)
-	fmt.Printf("(%.2f hours total)\n", totalHours)
-}
-
-func showCLIHelp() {
-	fmt.Println("Pomodoro Timer")
-	fmt.Println("\nUsage:")
-	fmt.Println("  pomodoro              Start the timer")
-	fmt.Println("  pomodoro --uninstall  Uninstall the program and remove config")
-	fmt.Println("  pomodoro -u          Short form for uninstall")
-	fmt.Println("  pomodoro --stats     Show total usage statistics")
-	fmt.Println("  pomodoro -s          Short form for stats")
-	fmt.Println("  pomodoro --help      Show this help message")
-	fmt.Println("  pomodoro -h          Short form for help")
-}
-
-func uninstall() {
-	fmt.Println("Uninstalling Pomodoro Timer...")
-	
-	// Remove the installed binary from /usr/local/bin
-	installedPath := "/usr/local/bin/pomodoro"
-	
-	if _, err := os.Stat(installedPath); err == nil {
-		fmt.Printf("Found binary at %s\n", installedPath)
-		fmt.Println("Note: Removing the binary requires sudo privileges.")
-		fmt.Printf("Please run: sudo rm %s\n", installedPath)
-	} else {
-		fmt.Printf("Binary not found at %s (may already be removed)\n", installedPath)
-	}
-	
-	// Remove config directory
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		fmt.Println("Error: Could not determine home directory")
-		return
-	}
-	
-	configDir := filepath.Join(homeDir, ".pomodoro")
-	if _, err := os.Stat(configDir); err == nil {
-		fmt.Printf("\nRemoving configuration directory: %s\n", configDir)
-		if err := os.RemoveAll(configDir); err != nil {
-			fmt.Printf("Error: Could not remove config directory: %v\n", err)
-		} else {
-			fmt.Println("Configuration removed successfully")
-		}
-	} else {
-		fmt.Println("\nNo configuration directory found")
-	}
-	
-	fmt.Println("\nUninstallation complete!")
-	fmt.Println("Don't forget to remove the binary with: sudo rm /usr/local/bin/pomodoro")
-}
-
-func showMainMenu() {
-	// Dimensions: 900px wide x 900px tall (for 74x60 ASCII art)
-	if err := showASCIIArtWithAutoSize("ascii-paintings/theGirlWithThePearlEarring"); err != nil {
-		// TODO error handling
-	}
-	
+func showMainMenu() {	
 	reader := bufio.NewReader(os.Stdin)
+
 	fmt.Println("\n================================================")
 	fmt.Printf("%sP O M O D O R O%s\n", "\033[31m", "\033[0m")
 	fmt.Println("================================================")
 	fmt.Print("1 - Use default values (25 min work, 5 min break)\n")
 	fmt.Print("2 - Select custom values\n")
-	fmt.Print("3 - Delete presets\n")
-	fmt.Print("s - Show usage\n")
+	fmt.Print("3 - Delete presets\n\n")
+	fmt.Print("a - Artwork Gallery\n")
 	fmt.Print("⏎ - Use last selected preset\n")
 	fmt.Print("q - Quit the program\n")
 	printUserInputPrompt()
@@ -148,7 +80,6 @@ func showMainMenu() {
 		
 		switch choice {
 		case "q":
-			saveSessionTime()
 			os.Exit(0)
 			return
 		case "1":
@@ -164,18 +95,18 @@ func showMainMenu() {
 			deletePresets(reader)
 			return
 		case "":
-            if lastPreset.workTime > 0 && lastPreset.breakTime > 0 {
-				fmt.Printf("\nUsing last selected preset, %.0f min work, %.0f min break, %.0f min longer break\n", lastPreset.workTime.Minutes(), lastPreset.breakTime.Minutes(), lastPreset.longerBreakTime.Minutes())
+            	if lastPreset.WorkTime > 0 && lastPreset.BreakTime > 0 {
+				fmt.Printf("\nUsing last selected preset, %.0f min work, %.0f min break, %.0f min longer break\n", lastPreset.WorkTime.Minutes(), lastPreset.BreakTime.Minutes(), lastPreset.LongerBreakTime.Minutes())
                 workBreakLoop(
-                    lastPreset.workTime,
-                    lastPreset.breakTime,
-                    lastPreset.longerBreakTime)
+                    lastPreset.WorkTime,
+                    lastPreset.BreakTime,
+                    lastPreset.LongerBreakTime)
                 return
             }
             fmt.Println("\nPlease select a custom timer first.")
 			printUserInputPrompt()
-		case "s":
-			showUsageStats()
+		case "a":
+			showArtworkGallery(reader)
 			printUserInputPrompt()
 		case "h":
 			showHelp()
@@ -192,6 +123,7 @@ func showHelp() {
 	fmt.Println("1 ─ Default timer (25/5 min)")
 	fmt.Println("2 ─ Presets & custom timers")
 	fmt.Println("3 ─ Delete presets")
+	fmt.Println("a ─ Artwork Gallery")
 	fmt.Println("⏎ (Enter) ─ Last custom timer")
 	fmt.Println("\nh ─ Help")
 	fmt.Println("q ─ Quit")
@@ -222,7 +154,7 @@ func selectCustomValues(reader *bufio.Reader) {
 			longerBreakDuration := time.Duration(selected.LongerBreakMinutes) * time.Minute
 			
 			saveLastUsedPreset(selected.WorkMinutes, selected.BreakMinutes, selected.LongerBreakMinutes)
-			lastPreset = LastPresetChoice{workTime: workDuration, breakTime: breakDuration, longerBreakTime: longerBreakDuration}
+			lastPreset = LastPresetChoice{WorkTime: workDuration, BreakTime: breakDuration, LongerBreakTime: longerBreakDuration}
 			
 			workBreakLoop(workDuration, breakDuration, longerBreakDuration)
 			return
@@ -272,7 +204,7 @@ func createCustomTimer(reader *bufio.Reader) {
 	longerBreakDuration := time.Duration(longerBreakMinutes) * time.Minute
 
 	saveLastUsedPreset(workMinutes, breakMinutes, longerBreakMinutes)
-	lastPreset = LastPresetChoice{workTime: workDuration, breakTime: breakDuration, longerBreakTime: longerBreakDuration}
+	lastPreset = LastPresetChoice{WorkTime: workDuration, BreakTime: breakDuration, LongerBreakTime: longerBreakDuration}
 
 	workBreakLoop(workDuration, breakDuration, longerBreakDuration)
 }
@@ -294,20 +226,40 @@ func userInputHandler(reader *bufio.Reader, msg string, defaultValue int) int {
 	return minutes
 }
 
-func workBreakLoop(workDuration time.Duration, breakDuration time.Duration, longerBreakDuration time.Duration) {
-	lastPreset = LastPresetChoice{workTime: workDuration, breakTime: breakDuration}
-	
+func workBreakLoop(workDuration time.Duration, breakDuration time.Duration, longerBreakDuration time.Duration) {	
 	saveLastUsedPreset(int(workDuration.Minutes()), int(breakDuration.Minutes()), int(longerBreakDuration.Minutes()))
 	
 	for i := range 4 {
 		fmt.Printf("Work session %d started...\n", i+1)
 		time.Sleep(workDuration)
 		alert(fmt.Sprintf("Take a break! You worked for %.0f minutes.\nA %.0f minute break starts now.", workDuration.Minutes(), breakDuration.Minutes()))
-
+		addSessionTime(workDuration, 0)
 		if(i==3) {break;}
 		fmt.Printf("Break time (%.0f minutes)...\n", breakDuration.Minutes())
 		time.Sleep(breakDuration)
 		alert("Break over! Time to get back to work.")
+	}
+
+	unlockArtworkLines(4)
+	progress := loadArtworkProgress()
+	if progress.CurrentArtworkIndex >= len(artworkList) {
+		fmt.Println("\nCongratulations! You've completed all artworks!")
+	} else {
+		currentArtwork := artworkList[progress.CurrentArtworkIndex]
+		unlockedLines := progress.UnlockedLines[currentArtwork.Filename]
+		totalArtLines := currentArtwork.TotalLines - 1
+		
+		fmt.Println("\nArtwork Progress:")
+		fmt.Printf("   %s: %d/%d lines unlocked\n", currentArtwork.Name, unlockedLines, totalArtLines)
+		
+		if unlockedLines > 0 {
+			fmt.Println("\n   Preview:")
+			displayPartialArtwork(currentArtwork.Filename, unlockedLines)
+		}
+		
+		if unlockedLines >= totalArtLines {
+			fmt.Printf("\n   Congratulations! You've completed %s!\n", currentArtwork.Name)
+		}
 	}
 
 	alert(fmt.Sprintf("Great job! Time for a longer %.0f minute break.", longerBreakDuration.Minutes()))

@@ -5,6 +5,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,18 +16,20 @@ import (
 func showASCIIArtWithAutoSize(filename string) error {
 	width, height, _, err := parseASCIIArtDimensions(filename)
 	if err != nil {
-		// Use defaults if parsing fails
 		width, height = 900, 900
 	}
 	return showASCIIArt(filename, width, height)
 }
 
 func parseASCIIArtDimensions(filename string) (width, height int, artStartLine int, err error) {
-	file, err := os.Open(filename)
-	if err != nil {
-		return 0, 0, 0, err
-	}
-	defer file.Close()
+	file, err := asciiPaintings.Open(filename)
+    if err != nil {
+        file, err = os.Open(filename)
+        if err != nil {
+            return 0, 0, 0, err
+        }
+    }
+    defer file.Close()
 	
 	scanner := bufio.NewScanner(file)
 	lineNum := 0
@@ -42,53 +45,85 @@ func parseASCIIArtDimensions(filename string) (width, height int, artStartLine i
 			if len(parts) == 2 {
 				charWidth, _ := strconv.Atoi(strings.TrimSpace(parts[0]))
 				charHeight, _ := strconv.Atoi(strings.TrimSpace(parts[1]))
-				
-				// Convert character dimensions to pixel dimensions
-				// Terminal character size: ~8px wide x ~16px tall
-				// Add window chrome: ~100px for borders/title bar
-				pixelWidth := charWidth*8 + 100   // characters * 8px + window chrome
-				pixelHeight := charHeight*16 + 100 // lines * 16px + window chrome
+				pixelWidth := charWidth*8 + 100
+				pixelHeight := charHeight*16 + 100
 				
 				return pixelWidth, pixelHeight, lineNum, nil
 			}
-		}
-		
-		// Stop after first few lines if no metadata found
+		}		
 		if lineNum > 3 {
 			break
 		}
 	}
-	
-	// Default dimensions if not found
 	return 900, 900, 0, nil
 }
 
 func showASCIIArt(filename string, width, height int) error {
 	var artPath string
 	
-	// First try relative to current working directory (for development with go run)
-	if _, err := os.Stat(filename); err == nil {
-		absPath, err := filepath.Abs(filename)
-		if err != nil {
-			return err
+	// First try embedded filesystem
+	embeddedFile, err := asciiPaintings.Open(filename)
+	if err == nil {
+		// Extract embedded file to temp location
+		data, readErr := io.ReadAll(embeddedFile)
+		embeddedFile.Close()
+		if readErr != nil {
+			return readErr
 		}
-		artPath = absPath
-	} else {
-		// Try relative to executable (for installed version)
-		exePath, err := os.Executable()
-		if err != nil {
-			return err
-		}
-		exeDir := filepath.Dir(exePath)
-		artPath = filepath.Join(exeDir, filename)
 		
-		if _, err := os.Stat(artPath); err != nil {
-			return fmt.Errorf("ASCII art file not found")
+		// Create temp file
+		tmpFile, tmpErr := os.CreateTemp("", "pomodoro_ascii_*")
+		if tmpErr != nil {
+			return tmpErr
+		}
+		
+		if _, writeErr := tmpFile.Write(data); writeErr != nil {
+			tmpFile.Close()
+			os.Remove(tmpFile.Name())
+			return writeErr
+		}
+		tmpFile.Close()
+		
+		artPath = tmpFile.Name()
+	} else {
+		if _, err := os.Stat(filename); err == nil {
+			absPath, err := filepath.Abs(filename)
+			if err != nil {
+				return err
+			}
+			artPath = absPath
+		} else {
+			exePath, err := os.Executable()
+			if err != nil {
+				return err
+			}
+			exeDir := filepath.Dir(exePath)
+			artPath = filepath.Join(exeDir, filename)
+			
+			if _, err := os.Stat(artPath); err != nil {
+				return fmt.Errorf("ASCII art file not found")
+			}
 		}
 	}
 	
-	// Create a script that waits for input then exits
+	cleanupCmd := ""
+	if strings.HasPrefix(artPath, os.TempDir()) {
+		cleanupCmd = fmt.Sprintf("rm -f '%s'", artPath)
+	}
+	
 	scriptContent := fmt.Sprintf(`#!/bin/bash
+# Function to close window on exit
+close_window() {
+    %s
+    # Small delay to ensure script has fully exited
+    sleep 0.1
+    # Close the terminal window
+    osascript -e 'tell application "Terminal" to close front window' 2>/dev/null
+}
+
+# Set trap to close window on exit
+trap close_window EXIT
+
 # Skip the DIMENSIONS metadata line if present
 if head -n1 '%s' | grep -q "DIMENSIONS:"; then
     tail -n +2 '%s'
@@ -98,7 +133,9 @@ fi
 echo ''
 echo 'Press Enter to close this window...'
 read -r
-`, artPath, artPath, artPath)
+# Exit cleanly - trap will handle window closing
+exit 0
+`, cleanupCmd, artPath, artPath, artPath)
 	
 	// Write script to temp file
 	tmpScript := "/tmp/pomodoro_ascii.sh"
@@ -106,30 +143,17 @@ read -r
 		return err
 	}
 	
-	// Calculate window bounds: {left, top, right, bottom}
-	// Default position: 100, 100
 	left, top := 100, 100
 	right := left + width
 	bottom := top + height
 	
 	// Use AppleScript to run script with custom window size
+	// The script will exit and close the window via trap
 	appleScript := fmt.Sprintf(`
 		tell application "Terminal"
 			activate
-			set newTab to do script "%s"
+			do script "%s"
 			set bounds of window 1 to {%d, %d, %d, %d}
-			repeat
-				delay 0.3
-				try
-					if not busy of newTab then
-						delay 0.5
-						close newTab
-						exit repeat
-					end if
-				on error
-					exit repeat
-				end try
-			end repeat
 		end tell
 	`, tmpScript, left, top, right, bottom)
 	

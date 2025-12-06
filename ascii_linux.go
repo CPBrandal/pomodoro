@@ -5,6 +5,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -22,9 +23,13 @@ func showASCIIArtWithAutoSize(filename string) error {
 }
 
 func parseASCIIArtDimensions(filename string) (width, height int, artStartLine int, err error) {
-	file, err := os.Open(filename)
+	file, err := asciiPaintings.Open(filename)
 	if err != nil {
-		return 0, 0, 0, err
+		// Fallback to filesystem for development
+		file, err = os.Open(filename)
+		if err != nil {
+			return 0, 0, 0, err
+		}
 	}
 	defer file.Close()
 	
@@ -64,17 +69,45 @@ func parseASCIIArtDimensions(filename string) (width, height int, artStartLine i
 }
 
 func showASCIIArt(filename string, width, height int) error {
-	// Get the absolute path to the ASCII art file
-	exePath, err := os.Executable()
-	if err != nil {
-		return err
-	}
-	exeDir := filepath.Dir(exePath)
-	artPath := filepath.Join(exeDir, filename)
+	var artPath string
 	
-	// Check if file exists
-	if _, err := os.Stat(artPath); err != nil {
-		return err
+	// First try embedded filesystem
+	embeddedFile, err := asciiPaintings.Open(filename)
+	if err == nil {
+		// Extract embedded file to temp location
+		data, readErr := io.ReadAll(embeddedFile)
+		embeddedFile.Close()
+		if readErr != nil {
+			return readErr
+		}
+		
+		// Create temp file
+		tmpFile, tmpErr := os.CreateTemp("", "pomodoro_ascii_*")
+		if tmpErr != nil {
+			return tmpErr
+		}
+		
+		if _, writeErr := tmpFile.Write(data); writeErr != nil {
+			tmpFile.Close()
+			os.Remove(tmpFile.Name())
+			return writeErr
+		}
+		tmpFile.Close()
+		
+		artPath = tmpFile.Name()
+	} else {
+		// Fallback: try relative to executable (for installed version)
+		exePath, err := os.Executable()
+		if err != nil {
+			return err
+		}
+		exeDir := filepath.Dir(exePath)
+		artPath = filepath.Join(exeDir, filename)
+		
+		// Check if file exists
+		if _, err := os.Stat(artPath); err != nil {
+			return err
+		}
 	}
 	
 	// Try different terminal emulators with geometry support
@@ -85,14 +118,15 @@ func showASCIIArt(filename string, width, height int) error {
 			var cmd *exec.Cmd
 			geometry := fmt.Sprintf("%dx%d", width, height)
 			switch term {
+			// Clean up temp file if using one
 			case "gnome-terminal":
-				cmd = exec.Command(term, "--geometry", geometry, "--", "bash", "-c", fmt.Sprintf("cat '%s'; echo ''; read -p 'Press Enter to close...';", artPath))
+				cmd = exec.Command(term, "--geometry", geometry, "--", "bash", "-c", fmt.Sprintf("cat '%s'; echo ''; read -p 'Press Enter to close...'", artPath))
 			case "xterm":
-				cmd = exec.Command(term, "-geometry", geometry, "-e", "bash", "-c", fmt.Sprintf("cat '%s'; echo ''; read -p 'Press Enter to close...';", artPath))
+				cmd = exec.Command(term, "-geometry", geometry, "-e", "bash", "-c", fmt.Sprintf("cat '%s'; echo ''; read -p 'Press Enter to close...'", artPath))
 			case "konsole":
-				cmd = exec.Command(term, "--geometry", geometry, "-e", "bash", "-c", fmt.Sprintf("cat '%s'; echo ''; read -p 'Press Enter to close...';", artPath))
+				cmd = exec.Command(term, "--geometry", geometry, "-e", "bash", "-c", fmt.Sprintf("cat '%s'; echo ''; read -p 'Press Enter to close...'", artPath))
 			default:
-				cmd = exec.Command(term, "-e", "bash", "-c", fmt.Sprintf("cat '%s'; echo ''; read -p 'Press Enter to close...';", artPath))
+				cmd = exec.Command(term, "-e", "bash", "-c", fmt.Sprintf("cat '%s'; echo ''; read -p 'Press Enter to close...'", artPath))
 			}
 			return cmd.Start() // Start in background
 		}
