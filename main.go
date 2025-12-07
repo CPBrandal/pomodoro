@@ -67,12 +67,12 @@ func showMainMenu() {
 	fmt.Println("\n================================================")
 	fmt.Printf("%sP O M O D O R O%s\n", "\033[31m", "\033[0m")
 	fmt.Println("================================================")
-	fmt.Print("1 - Use default values (25 min work, 5 min break)\n")
-	fmt.Print("2 - Select custom values\n")
-	fmt.Print("3 - Delete presets\n\n")
-	fmt.Print("a - Artwork Gallery\n")
-	fmt.Print("⏎ - Use last selected preset\n")
-	fmt.Print("q - Quit the program\n")
+	fmt.Print("1 | Use default values (25 min work, 5 min break)\n")
+	fmt.Print("2 | Select custom values\n")
+	fmt.Print("3 | Delete presets\n\n")
+	fmt.Print("↵ | Use last selected preset\n")
+	fmt.Print("a | Artwork Gallery\n")
+	fmt.Print("q | Quit the program\n")
 	printUserInputPrompt()
 	for {
 		choice, _ := reader.ReadString('\n')
@@ -120,13 +120,13 @@ func showMainMenu() {
 
 func showHelp() {
 	fmt.Println("\nCommands:")
-	fmt.Println("1 ─ Default timer (25/5 min)")
-	fmt.Println("2 ─ Presets & custom timers")
-	fmt.Println("3 ─ Delete presets")
-	fmt.Println("a ─ Artwork Gallery")
-	fmt.Println("⏎ (Enter) ─ Last custom timer")
-	fmt.Println("\nh ─ Help")
-	fmt.Println("q ─ Quit")
+	fmt.Println("1 | Default timer (25/5 min)")
+	fmt.Println("2 | Presets & custom timers")
+	fmt.Println("3 | Delete presets")
+	fmt.Println("↵ | Last custom timer")
+	fmt.Println("a | Artwork Gallery")
+	fmt.Println("\nh | Help")
+	fmt.Println("q | Quit")
 }
 
 func selectCustomValues(reader *bufio.Reader) {
@@ -135,10 +135,10 @@ func selectCustomValues(reader *bufio.Reader) {
 	if len(presets.Presets) > 0 {
 		fmt.Println("\nSaved presets:")
 		for i, preset := range presets.Presets {
-			fmt.Printf("%d - %s (%d min work, %d min break)\n", i+1, preset.Name, preset.WorkMinutes, preset.BreakMinutes)
+			fmt.Printf("%d | %s (%d min work, %d min break)\n", i+1, preset.Name, preset.WorkMinutes, preset.BreakMinutes)
 		}
-		fmt.Printf("%d - Create new custom timer\n", len(presets.Presets)+1)
-		fmt.Printf("%d - Return to main menu\n", 0)
+		fmt.Printf("%d | Create new custom timer\n", len(presets.Presets)+1)
+		fmt.Printf("\n%d | Return to main menu\n", 0)
 		printUserInputPrompt()
 		
 		choiceStr, _ := reader.ReadString('\n')
@@ -171,7 +171,7 @@ func selectCustomValues(reader *bufio.Reader) {
 }
 
 func createCustomTimer(reader *bufio.Reader) {
-	workMinutes := userInputHandler(reader, "How long are your working intervals (in minutes) [25]: ", DEFAULT_WORK_DURATION)
+	workMinutes := userInputHandler(reader, "\nHow long are your working intervals (in minutes) [25]: ", DEFAULT_WORK_DURATION)
 	if workMinutes < 0 {
 		return
 	}
@@ -231,16 +231,29 @@ func workBreakLoop(workDuration time.Duration, breakDuration time.Duration, long
 	
 	for i := range 4 {
 		fmt.Printf("Work session %d started...\n", i+1)
-		time.Sleep(workDuration)
-		alert(fmt.Sprintf("Take a break! You worked for %.0f minutes.\nA %.0f minute break starts now.", workDuration.Minutes(), breakDuration.Minutes()))
+		time.Sleep(workDuration / time.Minute * time.Second)		
 		addSessionTime(workDuration, 0)
+		unlockArtworkLines(1)
+		alert(fmt.Sprintf("Take a break! You worked for %.0f minutes.\nA %.0f minute break starts now.", workDuration.Minutes(), breakDuration.Minutes()))
 		if(i==3) {break;}
 		fmt.Printf("Break time (%.0f minutes)...\n", breakDuration.Minutes())
-		time.Sleep(breakDuration)
+		time.Sleep(breakDuration / time.Minute * time.Second)
 		alert("Break over! Time to get back to work.")
 	}
 
-	unlockArtworkLines(4)
+	showArtProgress()
+
+	alert(fmt.Sprintf("Great job! Time for a longer %.0f minute break.", longerBreakDuration.Minutes()))
+	time.Sleep(longerBreakDuration / time.Minute * time.Second)
+	alert("You have completed your pomodoro session. Press ok to restart, or cancel to exit.")
+	showMainMenu()
+}
+
+func printUserInputPrompt() {
+	fmt.Print("\n❯  ")
+}
+
+func showArtProgress() {
 	progress := loadArtworkProgress()
 	if progress.CurrentArtworkIndex >= len(artworkList) {
 		fmt.Println("\nCongratulations! You've completed all artworks!")
@@ -261,13 +274,4 @@ func workBreakLoop(workDuration time.Duration, breakDuration time.Duration, long
 			fmt.Printf("\n   Congratulations! You've completed %s!\n", currentArtwork.Name)
 		}
 	}
-
-	alert(fmt.Sprintf("Great job! Time for a longer %.0f minute break.", longerBreakDuration.Minutes()))
-	time.Sleep(longerBreakDuration)
-	alert("You have completed your pomodoro session. Press ok to restart, or cancel to exit.")
-	showMainMenu()
-}
-
-func printUserInputPrompt() {
-	fmt.Print("\n❯  ")
 }
